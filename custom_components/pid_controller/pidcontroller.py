@@ -16,8 +16,6 @@ import time
 class PIDController:
     """PID Controller"""
 
-    WARMUP_STAGE = 3
-
     def __init__(self, P=0.2, I=0.0, D=0.0, logger=None):
         self._logger = logger
 
@@ -57,42 +55,32 @@ class PIDController:
         if self._last_time is None:
             self._last_time = current_time
 
-        # Fill PID information
+        # Compute time delta
         delta_time = current_time - self._last_time
         if not delta_time:
             delta_time = 1e-16
         elif delta_time < 0:
             return
 
-        # Return last output if sample time not met
-        if (
-            self._sample_time is not None
-            and self._last_output is not None
-            and delta_time < self._sample_time
-        ):
-            return self._last_output
-
         # Calculate error
         error = self._set_point - feedback_value
-        last_error = self._set_point - (
-            self._last_input if self._last_input is not None else self._set_point
-        )
-
-        # Calculate delta error
-        delta_error = error - last_error
-
+        
         # Calculate P
         self._p_term = self._kp * error
 
-        # Calculate I and avoids Sturation
+        # Update integral term with anti-windup
         if self._last_output is None or (
             self._last_output > 0 and self._last_output < 100
         ):
             self._i_term += self._ki * error * delta_time
             self._i_term = self.clamp_value(self._i_term, self._windup)
-
-        # Calculate D
-        self._d_term = self._kd * delta_error / delta_time
+            
+        # Calculate D from change on measured/feedback value
+        if self._last_input is not None:
+            delta_input = feedback_value - self._last_input
+            self._d_term = -self._kd * delta_input / delta_time
+        else:
+            self._d_term = 0.0    
 
         # Compute final output
         self._output = self._p_term + self._i_term + self._d_term
@@ -155,7 +143,7 @@ class PIDController:
 
     @windup.setter
     def windup(self, value):
-        self._windup = (-value, value)
+        self._windup = (0, value)
 
     @property
     def sample_time(self):

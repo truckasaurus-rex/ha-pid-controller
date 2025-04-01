@@ -634,7 +634,6 @@ class PidController(SensorEntity):
                 self.show_template_exception(ex, CONF_SETPOINT)
             else:
                 self._entities += info.entities
-                self._reset_pid += info.entities
 
         if self._device_class_template is not None:
             try:
@@ -794,7 +793,6 @@ class PidController(SensorEntity):
                 self._pid.windup = self.windup
 
             if set_point != self._pid.set_point:
-                self.reset_pid()
                 self._pid.set_point = set_point
 
             if entity == self._source:
